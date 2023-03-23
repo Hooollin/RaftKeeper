@@ -1,5 +1,6 @@
 #pragma once
 
+#include <type_traits>
 #include <Poco/NObserver.h>
 #include <Poco/Net/ServerSocket.h>
 #include <Poco/Net/StreamSocket.h>
@@ -14,25 +15,25 @@ namespace RK {
 
     using namespace Poco::Net;
 
-    template <class SR>
+    template <class SR, typename = typename std::enable_if<std::is_base_of<SocketReactor, SR>::value>::type>
     class SvsSocketReactor : public SR
     {
     public:
         using Ptr = Poco::SharedPtr<SvsSocketReactor>;
 
-        SvsSocketReactor(const std::string& name = "")
+        explicit SvsSocketReactor(const std::string& name = "")
         {
-            _thread.start(*this);
+            thread_.start(*this);
             if (!name.empty())
-                _thread.setName(name);
+                thread_.setName(name);
         }
 
-        SvsSocketReactor(const Poco::Timespan& timeout, const std::string& name = ""):
+        explicit SvsSocketReactor(const Poco::Timespan& timeout, const std::string& name = ""):
             SR(timeout)
         {
-            _thread.start(*this);
+            thread_.start(*this);
             if (!name.empty())
-                _thread.setName(name);
+                thread_.setName(name);
         }
 
         ~SvsSocketReactor() override
@@ -40,7 +41,7 @@ namespace RK {
             try
             {
                 this->stop();
-                _thread.join();
+                thread_.join();
             }
             catch (...)
             {
@@ -55,7 +56,7 @@ namespace RK {
         }
 	
     private:
-        Poco::Thread _thread;
+        Poco::Thread thread_;
     };
 
 }

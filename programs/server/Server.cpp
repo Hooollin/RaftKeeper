@@ -132,7 +132,6 @@ int Server::main(const std::vector<std::string> & /*args*/)
 
     auto & global_context = Context::get();
 
-    std::shared_ptr<SvsSocketReactor<SocketReactor>> nio_server;
     std::shared_ptr<SvsSocketAcceptor<ConnectionHandler, SocketReactor>> nio_server_acceptor;
 
     //get port from config
@@ -156,14 +155,12 @@ int Server::main(const std::vector<std::string> & /*args*/)
             global_context.getConfigRef().getUInt(
                 "keeper.raft_settings.operation_timeout_ms", Coordination::DEFAULT_OPERATION_TIMEOUT_MS * 1000)
             * 1000);
-        nio_server = std::make_shared<SvsSocketReactor<SocketReactor>>(timeout, "NIO-ACCEPTOR");
         /// TODO add io thread count to config
         nio_server_acceptor = std::make_shared<SvsSocketAcceptor<ConnectionHandler, SocketReactor>>(
-            "NIO-HANDLER", global_context, socket, *nio_server, timeout);
+            "NIO-HANDLER", global_context, socket, timeout);
         LOG_INFO(log, "Listening for user connections on {}", socket.address().toString());
     });
 
-    std::shared_ptr<SvsSocketReactor<SocketReactor>> nio_forwarding_server;
     std::shared_ptr<SvsSocketAcceptor<ForwardingConnectionHandler, SocketReactor>> nio_forwarding_server_acceptor;
 
     /// start forwarding server
@@ -178,10 +175,9 @@ int Server::main(const std::vector<std::string> & /*args*/)
             global_context.getConfigRef().getUInt(
                 "keeper.raft_settings.operation_timeout_ms", Coordination::DEFAULT_OPERATION_TIMEOUT_MS * 1000)
             * 1000);
-        nio_forwarding_server = std::make_shared<SvsSocketReactor<SocketReactor>>(timeout, "NIO-ACCEPTOR");
         /// TODO add io thread count to config
         nio_forwarding_server_acceptor = std::make_shared<SvsSocketAcceptor<ForwardingConnectionHandler, SocketReactor>>(
-            "NIO-HANDLER", global_context, socket, *nio_forwarding_server, timeout);
+            "NIO-HANDLER", global_context, socket, timeout);
         LOG_INFO(log, "Listening for forwarding connections on {}", socket.address().toString());
     });
 
@@ -216,10 +212,9 @@ int Server::main(const std::vector<std::string> & /*args*/)
 
         /// shutdown TCP servers
         LOG_INFO(log, "Waiting for current connections to close.");
-        if (nio_server)
-            nio_server->stop();
-        if (nio_forwarding_server)
-            nio_forwarding_server->stop();
+
+        if(nio_server_acceptor) nio_server_acceptor->stop();
+        if(nio_forwarding_server_acceptor) nio_forwarding_server_acceptor->stop();
 
         LOG_INFO(log, "RaftKeeper shutdown gracefully.");
         _exit(Application::EXIT_OK);
