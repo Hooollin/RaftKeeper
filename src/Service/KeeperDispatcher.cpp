@@ -49,6 +49,7 @@ void KeeperDispatcher::requestThreadFakeZk(size_t thread_index)
 
             try
             {
+                // local session 的请求用request_processor处理
                 if (isLocalSession(request_for_session.session_id))
                 {
                     LOG_TRACE(
@@ -57,7 +58,7 @@ void KeeperDispatcher::requestThreadFakeZk(size_t thread_index)
                         toHexString(request_for_session.session_id),
                         request_for_session.request->xid,
                         request_for_session.request->getOpNum());
-                    request_processor->push(request_for_session);
+                    request_processor->push(request_for_session); // 这里第一次push了请求
                 }
                 /// we should skip close requests from clear session task
                 else if (!request_for_session.isForwardRequest() && request_for_session.request->getOpNum() != Coordination::OpNum::Close)
@@ -65,6 +66,7 @@ void KeeperDispatcher::requestThreadFakeZk(size_t thread_index)
                     LOG_WARNING(log, "not local session {}", toHexString(request_for_session.session_id));
                 }
 
+                // 所有的写请求都交给Leader处理，accumulator用来batch所有的写请求
                 if (!request_for_session.request->isReadRequest() && server->isLeaderAlive())
                 {
                     LOG_TRACE(log, "leader is {}", server->getLeader());
@@ -305,6 +307,7 @@ void KeeperDispatcher::initialize(const Poco::Util::AbstractConfiguration & conf
     responses_thread = std::make_shared<ThreadPool>(1);
     for (size_t i = 0; i < thread_count; i++)
     {
+        // RaftKeeper不提供线性一致性读，现在只使用requestThreadFakeZk方法来处理用户请求?
         if (session_consistent)
         {
             request_thread->trySchedule([this, i] { requestThreadFakeZk(i); });

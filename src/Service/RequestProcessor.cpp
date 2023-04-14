@@ -17,7 +17,7 @@ void RequestProcessor::push(RequestForSession request_for_session)
         }
     }
 }
-
+// 处理所有本地的非写请求
 void RequestProcessor::run()
 {
     setThreadName("ReqProcessor");
@@ -70,8 +70,10 @@ void RequestProcessor::run()
 
 void RequestProcessor::moveRequestToPendingQueue(RunnerId runner_id)
 {
+    // 一个runner中所有的requests, map<session_id, <requests>>
     auto & thread_requests = pending_requests.find(runner_id)->second;
 
+    // 属于runner的新requests
     size_t request_size = requests_queue->size(runner_id);
 
     if (request_size)
@@ -376,6 +378,7 @@ void RequestProcessor::processReadRequests(RunnerId runner_id)
     for (auto it = thread_requests.begin(); it != thread_requests.end();)
     {
         auto & session_requests = it->second;
+        // 可以RequestForSessions可用Queue提高性能
         for (auto session_request = session_requests.begin(); session_request != session_requests.end();)
         {
             /// read request
